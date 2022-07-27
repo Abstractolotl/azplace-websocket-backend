@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	err = database.insertWebsocket(ip, time.Now().Unix())
+	err = database.insertWebsocket(ip, time.Now().Unix(), websocketHandler.backendKey)
 
 	if err != nil {
 		fmt.Println(err)
