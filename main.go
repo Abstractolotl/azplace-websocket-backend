@@ -102,6 +102,12 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 			connections = removeConnection(connections, conn)
 			backendConnections = removeConnection(backendConnections, conn)
 
+			err = conn.Close()
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
 			return
 		}
 	}
