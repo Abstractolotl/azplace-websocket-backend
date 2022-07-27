@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"net"
 	"net/http"
+	"time"
 )
 
 var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024 * 8,
-	WriteBufferSize: 1024 * 8,
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
+
+var database *Database
 
 var connections []*websocket.Conn
 var backendConnections []*websocket.Conn
@@ -19,11 +23,31 @@ var backendConnections []*websocket.Conn
 var backendKey = "THISNEEDSTOBECHANGEDLATER"
 
 func main() {
+	var err error
+
+	database, err = NewDatabase()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Connected to database " + dbAddress)
+
+	err = database.insertWebsocket(getLocalIP(), time.Now().Unix())
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Inserted websocket ip in database")
+
 	r := gin.Default()
 
 	registerHandler(r)
 
-	err := r.Run()
+	err = r.Run()
 
 	if err != nil {
 		fmt.Println(err)
@@ -72,7 +96,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = bodyHandler(conn, body)
+		err = websocketMethodHandler(conn, body)
 
 		if err != nil {
 			return
@@ -80,7 +104,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func bodyHandler(conn *websocket.Conn, body map[string]interface{}) error {
+func websocketMethodHandler(conn *websocket.Conn, body map[string]interface{}) error {
 	if body["method"] == nil {
 		return conn.WriteMessage(websocket.TextMessage, []byte("no method in json body"))
 	}
@@ -91,10 +115,6 @@ func bodyHandler(conn *websocket.Conn, body map[string]interface{}) error {
 		return conn.WriteMessage(websocket.TextMessage, []byte("method is not a string"))
 	}
 
-	return methodHandler(conn, body, method)
-}
-
-func methodHandler(conn *websocket.Conn, body map[string]interface{}, method string) error {
 	switch method {
 	case "login":
 		return loginMethod(conn, body)
@@ -178,4 +198,19 @@ func removeConnection(s []*websocket.Conn, conn *websocket.Conn) []*websocket.Co
 	}
 
 	return s
+}
+
+func getLocalIP() string {
+	interfaces, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range interfaces {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
