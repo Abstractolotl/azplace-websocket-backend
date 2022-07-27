@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"errors"
+	"net"
+)
 
 func remove[Type comparable](slice []Type, element Type) []Type {
 	for i, e := range slice {
@@ -12,17 +15,20 @@ func remove[Type comparable](slice []Type, element Type) []Type {
 	return slice
 }
 
-func getLocalIP() string {
+func getLocalIP() (string, error) {
 	interfaces, err := net.InterfaceAddrs()
+
 	if err != nil {
-		return ""
+		return "", err
 	}
+
 	for _, address := range interfaces {
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
+				return ipnet.IP.String(), nil
 			}
 		}
 	}
-	return ""
+
+	return "", errors.New("could not find ip address")
 }

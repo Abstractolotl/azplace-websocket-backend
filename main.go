@@ -24,7 +24,14 @@ func main() {
 
 	fmt.Println("Connected to database " + dbAddress)
 
-	err = database.insertWebsocket(getLocalIP(), time.Now().Unix())
+	ip, err := getLocalIP()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = database.insertWebsocket(ip, time.Now().Unix())
 
 	if err != nil {
 		fmt.Println(err)
