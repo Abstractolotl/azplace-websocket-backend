@@ -3,11 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
-
-var backendKey = "THISNEEDSTOBECHANGEDLATER"
 
 var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -17,10 +16,13 @@ var wsUpgrader = websocket.Upgrader{
 type WebsocketHandler struct {
 	connections        []*websocket.Conn
 	backendConnections []*websocket.Conn
+	backendKey         string
 }
 
 func NewWebsocketHandler() *WebsocketHandler {
 	handler := new(WebsocketHandler)
+
+	handler.backendKey = uuid.New().String()
 
 	return handler
 }
@@ -106,7 +108,7 @@ func (websocketHandler WebsocketHandler) loginMethod(conn *websocket.Conn, body 
 		return conn.WriteMessage(websocket.TextMessage, []byte("key is not a string"))
 	}
 
-	if key != backendKey {
+	if key != websocketHandler.backendKey {
 		return conn.WriteMessage(websocket.TextMessage, []byte("key is not correct"))
 	}
 

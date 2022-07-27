@@ -32,10 +32,10 @@ func NewDatabase() (*Database, error) {
 	return database, err
 }
 
-func (database Database) insertWebsocket(address string, timestamp int64) error {
-	statement := `INSERT INTO websockets (address, timestamp_online_since) VALUES (?, ?);`
+func (database Database) insertWebsocket(address string, timestamp int64, secret string) error {
+	statement := `INSERT INTO websockets (address, timestamp_online_since, secret) VALUES (?, ?, ?);`
 
-	_, err := database.conn.Exec(statement, address, timestamp)
+	_, err := database.conn.Exec(statement, address, timestamp, secret)
 
 	return err
 }
