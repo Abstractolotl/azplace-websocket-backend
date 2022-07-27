@@ -11,5 +11,6 @@ COPY *.go ./
 RUN go build -o /azplace-websocket-backend
 
 EXPOSE 8080
+ENV GIN_MODE=release
 
 CMD [ "/azplace-websocket-backend" ]
