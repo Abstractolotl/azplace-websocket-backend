@@ -31,7 +31,7 @@ func main() {
 }
 
 func registerHandler(r *gin.Engine) {
-	r.GET("/", func(c *gin.Context) {
+	r.GET("/ws", func(c *gin.Context) {
 		websocketHandler(c.Writer, c.Request)
 	})
 
