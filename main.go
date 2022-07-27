@@ -163,6 +163,8 @@ func broadcastMethod(conn *websocket.Conn, body map[string]interface{}) error {
 		if err != nil {
 			connections = removeConnection(connections, c)
 		}
+
+		err = nil
 	}
 
 	return conn.WriteMessage(websocket.TextMessage, []byte("broadcasted message"))
