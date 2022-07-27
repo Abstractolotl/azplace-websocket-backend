@@ -99,6 +99,9 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		err = websocketMethodHandler(conn, body)
 
 		if err != nil {
+			connections = removeConnection(connections, conn)
+			backendConnections = removeConnection(backendConnections, conn)
+
 			return
 		}
 	}
