@@ -1,0 +1,28 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Login to Github Docker Registry
+        run: |
+          echo $CR_PAT | docker login ghcr.io -u Abstractolotl --password-stdin
+        env:
+          CR_PAT: ${{ secrets.CR_PAT }}
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag ghcr.io/abstractolotl/azplace-websocket-backend:$(echo $(date +%s)) --tag ghcr.io/abstractolotl/azplace-websocket-backend:latest
+      - name: Push the Docker image
+        run: docker push ghcr.io/abstractolotl/azplace-websocket-backend --all-tags
+
+      - name: Trigger helmchart action
+        run: |
+          curl -XPOST -u "$USERNAME:$CR_PAT" -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" https://api.github.com/repos/Abstractolotl/azplace-helmcharts/dispatches --data '{"event_type": "azplace-websocket-backend update"}'
+        env:
+          CR_PAT: ${{ secrets.CR_PAT }}
+          USERNAME: ${{ secrets.USERNAME }}
