@@ -34,6 +34,10 @@ func registerHandler(r *gin.Engine) {
 	r.GET("/", func(c *gin.Context) {
 		websocketHandler(c.Writer, c.Request)
 	})
+
+	r.GET("/health", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte("OK"))
+	})
 }
 
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
