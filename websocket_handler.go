@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
+	"time"
 )
 
 var wsUpgrader = websocket.Upgrader{
@@ -27,8 +29,8 @@ func NewWebsocketHandler() *WebsocketHandler {
 	return handler
 }
 
-func (websocketHandler WebsocketHandler) handler(w http.ResponseWriter, r *http.Request) {
-	conn, err := wsUpgrader.Upgrade(w, r, nil)
+func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
+	conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 
 	if err != nil {
 		fmt.Printf("failed to set websocket upgrade: %+v\n", err)
@@ -42,12 +44,16 @@ func (websocketHandler WebsocketHandler) handler(w http.ResponseWriter, r *http.
 	}
 
 	websocketHandler.connections = append(websocketHandler.connections, conn)
+	websocketHandler.log("new connection", 200, time.Now(), c.ClientIP())
 
 	for {
 		t, bytes, err := conn.ReadMessage()
 
+		since := time.Now()
+
 		if t != websocket.TextMessage {
 			err = conn.WriteMessage(websocket.TextMessage, []byte("message must be textmessage"))
+			websocketHandler.log("", 400, since, c.ClientIP())
 			return
 		}
 
@@ -56,10 +62,21 @@ func (websocketHandler WebsocketHandler) handler(w http.ResponseWriter, r *http.
 
 		if err != nil {
 			err = conn.WriteMessage(websocket.TextMessage, []byte("could not parse json body"))
+			websocketHandler.log("", 400, since, c.ClientIP())
 			return
 		}
 
-		err = websocketHandler.methodHandler(conn, body)
+		method, err := websocketHandler.methodHandler(conn, body)
+
+		status := 0
+
+		if err == nil && len(method) > 0 {
+			status = 200
+		} else {
+			status = 400
+		}
+
+		websocketHandler.log(method, status, since, c.ClientIP())
 
 		if err != nil {
 			websocketHandler.connections = remove(websocketHandler.connections, conn)
@@ -76,25 +93,25 @@ func (websocketHandler WebsocketHandler) handler(w http.ResponseWriter, r *http.
 	}
 }
 
-func (websocketHandler WebsocketHandler) methodHandler(conn *websocket.Conn, body map[string]interface{}) error {
+func (websocketHandler WebsocketHandler) methodHandler(conn *websocket.Conn, body map[string]interface{}) (string, error) {
 	if body["method"] == nil {
-		return conn.WriteMessage(websocket.TextMessage, []byte("no method in json body"))
+		return "", conn.WriteMessage(websocket.TextMessage, []byte("no method in json body"))
 	}
 
 	method, s := body["method"].(string)
 
 	if !s {
-		return conn.WriteMessage(websocket.TextMessage, []byte("method is not a string"))
+		return "", conn.WriteMessage(websocket.TextMessage, []byte("method is not a string"))
 	}
 
 	switch method {
 	case "login":
-		return websocketHandler.loginMethod(conn, body)
+		return method, websocketHandler.loginMethod(conn, body)
 	case "broadcast":
-		return websocketHandler.broadcastMethod(conn, body)
+		return method, websocketHandler.broadcastMethod(conn, body)
 	}
 
-	return conn.WriteMessage(websocket.TextMessage, []byte("could not find method"))
+	return method, conn.WriteMessage(websocket.TextMessage, []byte("could not find method"))
 }
 
 func (websocketHandler WebsocketHandler) loginMethod(conn *websocket.Conn, body map[string]interface{}) error {
@@ -160,4 +177,34 @@ func (websocketHandler WebsocketHandler) broadcastMethod(conn *websocket.Conn, b
 	}
 
 	return conn.WriteMessage(websocket.TextMessage, []byte("broadcasted message"))
+}
+
+func (websocketHandler WebsocketHandler) log(method string, statusCode int, since time.Time, clientIp string) {
+	param := new(gin.LogFormatterParams)
+	param.Path = method
+	param.Method = http.MethodGet
+	param.ClientIP = clientIp
+	param.Latency = time.Since(since)
+	param.StatusCode = statusCode
+	param.TimeStamp = time.Now()
+
+	statusColor := param.StatusCodeColor()
+	methodColor := param.MethodColor()
+	resetColor := param.ResetColor()
+
+	param.Method = "Websocket"
+
+	if param.Latency > time.Minute {
+		param.Latency = param.Latency.Truncate(time.Second)
+	}
+
+	fmt.Print(fmt.Sprintf("[GIN-WS] %v |%s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s",
+		param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+		statusColor, param.StatusCode, resetColor,
+		param.Latency,
+		param.ClientIP,
+		methodColor, param.Method, resetColor,
+		param.Path,
+		param.ErrorMessage,
+	))
 }
