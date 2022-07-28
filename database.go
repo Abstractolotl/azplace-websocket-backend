@@ -3,15 +3,15 @@ package main
 import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
-	"strconv"
+	"os"
 )
 
 var (
-	dbAddress  = "noucake.ddns.net"
-	dbPort     = 3306
-	dbName     = "aztube"
-	dbUser     = "root"
-	dbPassword = "rootpw"
+	dbAddress  = os.Getenv("DB_ADDR")
+	dbPort     = os.Getenv("DB_PORT")
+	dbName     = os.Getenv("DB_NAME")
+	dbUser     = os.Getenv("DB_USER")
+	dbPassword = os.Getenv("DB_PW")
 )
 
 type Database struct {
@@ -21,7 +21,7 @@ type Database struct {
 func NewDatabase() (*Database, error) {
 	database := new(Database)
 
-	db, err := sql.Open("mysql", dbUser+":"+dbPassword+"@tcp("+dbAddress+":"+strconv.Itoa(dbPort)+")/"+dbName)
+	db, err := sql.Open("mysql", dbUser+":"+dbPassword+"@tcp("+dbAddress+":"+dbPort+")/"+dbName)
 
 	if err != nil {
 		return nil, err
