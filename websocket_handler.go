@@ -21,6 +21,28 @@ type WebsocketHandler struct {
 	backendKey         string
 }
 
+type Response struct {
+	Error   bool    `json:"error"`
+	Message *string `json:"message"`
+	Method  *string `json:"method"`
+}
+
+func NewResponse(error bool, message string, method string) *Response {
+	response := new(Response)
+
+	response.Error = error
+
+	if len(message) > 0 {
+		response.Message = &message
+	}
+
+	if len(method) > 0 {
+		response.Method = &method
+	}
+
+	return response
+}
+
 func NewWebsocketHandler() *WebsocketHandler {
 	handler := new(WebsocketHandler)
 
@@ -37,7 +59,7 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 		return
 	}
 
-	err = conn.WriteMessage(websocket.TextMessage, []byte("HELO from server"))
+	err = websocketHandler.sendResponse(conn, NewResponse(false, "HELO from server", "HELO"))
 
 	if err != nil {
 		return
@@ -52,7 +74,7 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 		since := time.Now()
 
 		if t != websocket.TextMessage {
-			err = conn.WriteMessage(websocket.TextMessage, []byte("message must be textmessage"))
+			err = websocketHandler.sendResponse(conn, NewResponse(true, "message must be textmessage", ""))
 			websocketHandler.log("", 400, since, c.ClientIP())
 			return
 		}
@@ -61,7 +83,7 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 		err = json.Unmarshal(bytes, &body)
 
 		if err != nil {
-			err = conn.WriteMessage(websocket.TextMessage, []byte("could not parse json body"))
+			err = websocketHandler.sendResponse(conn, NewResponse(true, "could not parse json body", ""))
 			websocketHandler.log("", 400, since, c.ClientIP())
 			return
 		}
@@ -93,15 +115,25 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 	}
 }
 
+func (websocketHandler WebsocketHandler) sendResponse(conn *websocket.Conn, response *Response) error {
+	dataBytes, err := json.Marshal(response)
+
+	if err != nil {
+		return err
+	}
+
+	return conn.WriteMessage(websocket.TextMessage, dataBytes)
+}
+
 func (websocketHandler WebsocketHandler) methodHandler(conn *websocket.Conn, body map[string]interface{}) (string, error) {
 	if body["method"] == nil {
-		return "", conn.WriteMessage(websocket.TextMessage, []byte("no method in json body"))
+		return "", websocketHandler.sendResponse(conn, NewResponse(true, "no method in json body", ""))
 	}
 
 	method, s := body["method"].(string)
 
 	if !s {
-		return "", conn.WriteMessage(websocket.TextMessage, []byte("method is not a string"))
+		return "", websocketHandler.sendResponse(conn, NewResponse(true, "method is not a string", ""))
 	}
 
 	switch method {
@@ -111,29 +143,29 @@ func (websocketHandler WebsocketHandler) methodHandler(conn *websocket.Conn, bod
 		return method, websocketHandler.broadcastMethod(conn, body)
 	}
 
-	return method, conn.WriteMessage(websocket.TextMessage, []byte("could not find method"))
+	return method, websocketHandler.sendResponse(conn, NewResponse(true, "could not find method", method))
 }
 
 func (websocketHandler WebsocketHandler) loginMethod(conn *websocket.Conn, body map[string]interface{}) error {
 	if body["key"] == nil {
-		return conn.WriteMessage(websocket.TextMessage, []byte("no key in json body"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "no key in json body", "login"))
 	}
 
 	key, s := body["key"].(string)
 
 	if !s {
-		return conn.WriteMessage(websocket.TextMessage, []byte("key is not a string"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "key is not a string", "login"))
 	}
 
 	if key != websocketHandler.backendKey {
-		return conn.WriteMessage(websocket.TextMessage, []byte("key is not correct"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "key is not correct", "login"))
 	}
 
 	websocketHandler.connections = remove(websocketHandler.connections, conn)
 
 	websocketHandler.backendConnections = append(websocketHandler.backendConnections, conn)
 
-	return conn.WriteMessage(websocket.TextMessage, []byte("backend logged in"))
+	return websocketHandler.sendResponse(conn, NewResponse(false, "backend logged in", "login"))
 }
 
 func (websocketHandler WebsocketHandler) broadcastMethod(conn *websocket.Conn, body map[string]interface{}) error {
@@ -147,23 +179,23 @@ func (websocketHandler WebsocketHandler) broadcastMethod(conn *websocket.Conn, b
 	}
 
 	if !connectionIsBackend {
-		return conn.WriteMessage(websocket.TextMessage, []byte("only backend is allowed to broadcast"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "only backend is allowed to broadcast", "broadcast"))
 	}
 
 	if body["data"] == nil {
-		return conn.WriteMessage(websocket.TextMessage, []byte("no data in json body"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "no data in json body", "broadcast"))
 	}
 
 	data, s := body["data"].(map[string]interface{})
 
 	if !s {
-		return conn.WriteMessage(websocket.TextMessage, []byte("data is not json object"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "data is not json object", "broadcast"))
 	}
 
 	dataBytes, err := json.Marshal(data)
 
 	if err != nil {
-		return conn.WriteMessage(websocket.TextMessage, []byte("failed to stringify data json"))
+		return websocketHandler.sendResponse(conn, NewResponse(true, "failed to stringify data json", "broadcast"))
 	}
 
 	for _, c := range websocketHandler.connections {
@@ -176,7 +208,7 @@ func (websocketHandler WebsocketHandler) broadcastMethod(conn *websocket.Conn, b
 		err = nil
 	}
 
-	return conn.WriteMessage(websocket.TextMessage, []byte("broadcasted message"))
+	return websocketHandler.sendResponse(conn, NewResponse(false, "broadcasted message", "broadcast"))
 }
 
 func (websocketHandler WebsocketHandler) log(method string, statusCode int, since time.Time, clientIp string) {
