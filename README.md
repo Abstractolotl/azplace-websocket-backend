@@ -17,3 +17,10 @@ Methods (for backend):
   }
 }
 ```
+
+### count
+```
+{
+  "method": "count"
+}
+```
