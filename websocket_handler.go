@@ -63,12 +63,6 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 		return
 	}
 
-	err = websocketHandler.sendResponse(conn, NewResponse(false, "HELO from server", "HELO", nil))
-
-	if err != nil {
-		return
-	}
-
 	connections = append(connections, conn)
 	websocketHandler.log("new connection", 200, time.Now(), c.ClientIP())
 
