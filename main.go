@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -31,7 +32,7 @@ func main() {
 		return
 	}
 
-	err = database.insertWebsocket(ip, time.Now().Unix(), websocketHandler.backendKey)
+	err = database.insertWebsocket(*NewWebsocket(ip, time.Now().Unix(), websocketHandler.backendKey))
 
 	if err != nil {
 		fmt.Println(err)
@@ -39,6 +40,8 @@ func main() {
 	}
 
 	fmt.Println("Inserted websocket ip in database")
+
+	checkSelfInDatabase()
 
 	r := gin.Default()
 
@@ -57,4 +60,21 @@ func registerHandler(r *gin.Engine) {
 	r.GET("/health", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte("OK"))
 	})
+}
+
+func checkSelfInDatabase() {
+	go func() {
+		for true {
+			_, err := database.getWebsocket(websocketHandler.backendKey)
+
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("database returned error while trying to find self, killing self.")
+
+				os.Exit(1)
+			}
+
+			time.Sleep(10 * time.Second)
+		}
+	}()
 }
