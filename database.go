@@ -19,24 +19,8 @@ type Database struct {
 	conn *sql.DB
 }
 
-type Websocket struct {
-	Address   string `json:"address"`
-	Timestamp int64  `json:"timestamp_online_since"`
-	Secret    string `json:"secret"`
-}
-
-func NewWebsocket(address string, timestamp int64, secret string) *Websocket {
-	websocket := new(Websocket)
-
-	websocket.Address = address
-	websocket.Timestamp = timestamp
-	websocket.Secret = secret
-
-	return websocket
-}
-
 func NewDatabase() (*Database, error) {
-	database := new(Database)
+	d := new(Database)
 
 	db, err := sql.Open("mysql", dbUser+":"+dbPassword+"@tcp("+dbAddress+":"+dbPort+")/"+dbName)
 
@@ -44,9 +28,9 @@ func NewDatabase() (*Database, error) {
 		return nil, err
 	}
 
-	database.conn = db
+	d.conn = db
 
-	return database, err
+	return d, err
 }
 
 func (database Database) insertWebsocket(websocket Websocket) error {
