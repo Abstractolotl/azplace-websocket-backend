@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
 	"time"
 )
@@ -59,7 +60,7 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 	conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 
 	if err != nil {
-		fmt.Printf("failed to set websocket upgrade: %+v\n", err)
+		log.Printf("failed to set websocket upgrade: %+v\n", err)
 		return
 	}
 
@@ -105,7 +106,7 @@ func (websocketHandler WebsocketHandler) handler(c *gin.Context) {
 			err = conn.Close()
 
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err.Error())
 			}
 
 			return
@@ -237,7 +238,7 @@ func (websocketHandler WebsocketHandler) log(method string, statusCode int, sinc
 		param.Latency = param.Latency.Truncate(time.Second)
 	}
 
-	fmt.Print(fmt.Sprintf("[GIN-WS] %v |%s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s",
+	log.Println(fmt.Sprintf("[GIN-WS] %v |%s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s",
 		param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 		statusColor, param.StatusCode, resetColor,
 		param.Latency,
