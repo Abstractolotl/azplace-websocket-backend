@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"os"
@@ -60,6 +61,8 @@ func registerHandler(r *gin.Engine) {
 	r.GET("/health", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte("OK"))
 	})
+
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 }
 
 func checkSelfInDatabase() {
